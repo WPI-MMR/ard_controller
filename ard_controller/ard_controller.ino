@@ -248,7 +248,7 @@ void rx_processor() {
 void sensor_data_response() {
   int raw_sum = 0;
   int checksum;
-  long angle;
+  long angle, goal;
   int b1, b2;
 
   // send preamble
@@ -266,6 +266,11 @@ void sensor_data_response() {
     Serial1.write((byte)b1);
     Serial1.write((byte)b2);
   }
+
+  // send at_goal flag
+  goal = random(2);
+  raw_sum += goal;
+  Serial1.write((byte)goal);
 
   // send checksum
   checksum = 255 - raw_sum % 256;
