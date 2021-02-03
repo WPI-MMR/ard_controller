@@ -61,6 +61,24 @@ void dump_validated_packet_data() {
   Serial.println(buffer);
 }
 
+void dump_temporary_packet_data() {
+  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
+          temporary_packet_data.left_hip,
+          temporary_packet_data.left_knee,
+          temporary_packet_data.right_hip,
+          temporary_packet_data.right_knee,
+          temporary_packet_data.left_shoulder,
+          temporary_packet_data.left_elbow,
+          temporary_packet_data.right_shoulder,
+          temporary_packet_data.right_elbow,
+          temporary_packet_data.checksum,
+          temporary_packet_data.checksum_error,
+          temporary_packet_data.packet_available,
+          temporary_packet_data.data_request
+          );
+  Serial.println(buffer);
+}
+
 void rx_processor() {
   static int preamble_counter = PREAMBLE_LENGTH;   // Number of ints in the packet preamble
   static int data_byte_counter = DATA_BYTE_LENGTH; // Number of ints per joint angle
@@ -68,7 +86,10 @@ void rx_processor() {
   int received_data; // The current int read from the RPi
 
   if (Serial1.available() > 0) {
-    received_data = Serial1.read();
+    if (sr_state != INIT) {
+      received_data = Serial1.read();
+      // Serial.println(received_data);
+    }
 
     switch (sr_state)
     {
@@ -129,6 +150,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_R_HIP;
         }
+        break;
       case READ_R_HIP:
         temporary_packet_data.right_hip += received_data;
         calculated_checksum += received_data;
@@ -137,6 +159,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_R_KNEE;
         }
+        break;
       case READ_R_KNEE:
         temporary_packet_data.right_knee += received_data;
         calculated_checksum += received_data;
@@ -145,6 +168,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_L_SHOULDER;
         }
+        break;
       case READ_L_SHOULDER:
         temporary_packet_data.left_shoulder += received_data;
         calculated_checksum += received_data;
@@ -153,6 +177,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_L_ELBOW;
         }
+        break;
       case READ_L_ELBOW:
         temporary_packet_data.left_elbow += received_data;
         calculated_checksum += received_data;
@@ -161,6 +186,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_R_SHOULDER;
         }
+        break;
       case READ_R_SHOULDER:
         temporary_packet_data.right_shoulder += received_data;
         calculated_checksum += received_data;
@@ -169,6 +195,7 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_R_ELBOW;
         }
+        break;
       case READ_R_ELBOW:
         temporary_packet_data.right_elbow += received_data;
         calculated_checksum += received_data;
@@ -177,11 +204,12 @@ void rx_processor() {
           data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_CHECKSUM;
         }
+        break;
       case READ_CHECKSUM:
         temporary_packet_data.checksum = received_data;
 
         // calculated checksum must match received checksum; otherwise there's an error
-        if (temporary_packet_data.checksum_error == 0xFF - calculated_checksum % 256) {
+        if (temporary_packet_data.checksum == 0xFF - (calculated_checksum % 256)) {
           // good packet
           calculated_checksum = 0x00;
           preamble_counter = PREAMBLE_LENGTH;
@@ -202,13 +230,14 @@ void rx_processor() {
           validated_packet_data.packet_available = temporary_packet_data.packet_available;
           validated_packet_data.data_request = temporary_packet_data.data_request;
 
-          sr_state = READ_PREAMBLE;
+          sr_state = INIT;
         }
         else {
           temporary_packet_data.checksum_error = true;
           temporary_packet_data.packet_available = false;
           sr_state = INIT;
         }
+        break;
       default:
         sr_state = INIT;
         break;
