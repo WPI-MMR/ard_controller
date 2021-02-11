@@ -1,3 +1,4 @@
+#include <due_can.h>
 #include <DueTimer.h>
 
 #define NUM_JOINTS 8
