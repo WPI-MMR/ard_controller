@@ -1,6 +1,15 @@
 /**
  * Experimentation script using https://github.com/collin80/due_can/blob/master/examples/CAN_AutoBaud/CAN_AutoBaud.ino
  * as guidance.
+ * 
+ * ============= SEQUENCE THAT NEEDS TO BE IMPLEMENTED IN CAN PROTOCOL
+ * 1) odrv0.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE (startup)
+ * 2) odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL (startup)
+ * 3) odrv0.axis0.controller.input_pos = <float> (repeat)
+ * 
+ * documentation of ODrive CAN protocol -> https://docs.odriverobotics.com/can-protocol
+ * example of data frame for pos control -> https://discourse.odriverobotics.com/t/can-interface-available-for-testing/1448/8?u=andrew_103
+ * 
  */
 
 #include <due_can.h>
