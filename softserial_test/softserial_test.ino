@@ -55,7 +55,10 @@ void loop() {
 
     if (c == 'm') { // move to specified motor position
       Serial.println("Moving to position 10...");
-      // odrive.SetPosition(0, 10.0f);
+      // The software serial library used in this sketch has an issue that
+      // prevents the "p" command from being used to communicate with the ODrive
+
+      // odrive.SetPosition(0, 10.0f); // doesn't work because uses "p" command
       // odrive_serial.write("p 0 10 0 0\n"); // doesn't work with floats
       odrive_serial.write("w axis0.controller.input_pos 10.0\n");
     }
