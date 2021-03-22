@@ -1,5 +1,8 @@
-#include <DueTimer.h>
+#include <ODriveArduino.h>
+#include <HardwareSerial.h>
+#include <Servo.h>
 
+#define GEAR_RATIO 9
 #define NUM_JOINTS 8
 #define NUM_IMU_AXES 3
 #define PREAMBLE_LENGTH 4
@@ -16,6 +19,8 @@ enum SerialReadState {
   READ_L_ELBOW,
   READ_R_SHOULDER,
   READ_R_ELBOW,
+  READ_L_ANKLE,
+  READ_R_ANKLE,
   READ_CHECKSUM
 };
 
@@ -30,6 +35,8 @@ struct JointAngleStruct {
   int left_elbow;
   int right_shoulder;
   int right_elbow;
+  int left_ankle;
+  int right_ankle;
   int checksum;
   bool checksum_error;
   bool packet_available;
@@ -38,6 +45,16 @@ struct JointAngleStruct {
 
 JointAngleStruct temporary_packet_data;
 JointAngleStruct validated_packet_data;
+
+HardwareSerial& odrv_leftleg_ser = Serial2;
+HardwareSerial& odrv_rightleg_ser = Serial3;
+HardwareSerial& odrv_leftarm_ser = Serial4;
+HardwareSerial& odrv_rightarm_ser = Serial5;
+
+ODriveArduino odrv_leftleg(odrv_leftleg_ser);
+ODriveArduino odrv_rightleg(odrv_rightleg_ser);
+ODriveArduino odrv_leftarm(odrv_leftarm_ser);
+ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
 bool write_flag = false;
 
@@ -278,8 +295,25 @@ void sensor_data_response() {
 }
 
 void setup() {
-  Serial.begin(115200);
-  Serial1.begin(115200);
+  Serial.begin(115200); // console
+  Serial1.begin(115200); // raspi comms
+
+  // start serial connection to ODrives
+  odrv_leftleg_ser.begin(115200);
+  odrv_rightleg_ser.begin(115200);
+  odrv_leftarm_ser.begin(115200);
+  odrv_rightarm_ser.begin(115200);
+
+  // set all ODrive axes to closed loop control
+  int requested_state = ODriveArduino::AXIS_STATE_CLOSED_LOOP_CONTROL;
+  odrv_leftleg.run_state(0, requested_state, false); // hips
+  odrv_rightleg.run_state(0, requested_state, false);
+  odrv_leftarm.run_state(0, requested_state, false); // shoulders
+  odrv_rightarm.run_state(0, requested_state, false);
+  odrv_leftleg.run_state(1, requested_state, false); // knees
+  odrv_rightleg.run_state(1, requested_state, false);
+  odrv_leftarm.run_state(1, requested_state, false); // elbows
+  odrv_rightarm.run_state(1, requested_state, false);
 }
 
 void loop() {
@@ -293,6 +327,14 @@ void loop() {
     }
     else {
       // we received a new joint angle goal; get to it
+      odrv_leftleg.SetPosition(0, validated_packet_data.left_hip * GEAR_RATIO);
+      odrv_rightleg.SetPosition(0, validated_packet_data.right_hip * GEAR_RATIO);
+      odrv_leftarm.SetPosition(0, validated_packet_data.left_shoulder * GEAR_RATIO);
+      odrv_rightarm.SetPosition(0, validated_packet_data.right_shoulder * GEAR_RATIO);
+      odrv_leftleg.SetPosition(1, validated_packet_data.left_knee * GEAR_RATIO);
+      odrv_rightleg.SetPosition(1, validated_packet_data.right_knee * GEAR_RATIO);
+      odrv_leftarm.SetPosition(1, validated_packet_data.left_elbow * GEAR_RATIO);
+      odrv_rightarm.SetPosition(1, validated_packet_data.right_elbow * GEAR_RATIO);
     }
   }
 }
