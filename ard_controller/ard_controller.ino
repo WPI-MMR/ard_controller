@@ -327,14 +327,14 @@ void loop() {
     }
     else {
       // we received a new joint angle goal; get to it
-      odrv_leftleg.SetPosition(0, validated_packet_data.left_hip * GEAR_RATIO);
-      odrv_rightleg.SetPosition(0, validated_packet_data.right_hip * GEAR_RATIO);
-      odrv_leftarm.SetPosition(0, validated_packet_data.left_shoulder * GEAR_RATIO);
-      odrv_rightarm.SetPosition(0, validated_packet_data.right_shoulder * GEAR_RATIO);
-      odrv_leftleg.SetPosition(1, validated_packet_data.left_knee * GEAR_RATIO);
-      odrv_rightleg.SetPosition(1, validated_packet_data.right_knee * GEAR_RATIO);
-      odrv_leftarm.SetPosition(1, validated_packet_data.left_elbow * GEAR_RATIO);
-      odrv_rightarm.SetPosition(1, validated_packet_data.right_elbow * GEAR_RATIO);
+      odrv_leftleg.SetPosition(0, (validated_packet_data.left_hip * GEAR_RATIO) / 360.0);
+      odrv_rightleg.SetPosition(0, (validated_packet_data.right_hip * GEAR_RATIO) / 360.0);
+      odrv_leftarm.SetPosition(0, (validated_packet_data.left_shoulder * GEAR_RATIO) / 360.0);
+      odrv_rightarm.SetPosition(0, (validated_packet_data.right_shoulder * GEAR_RATIO) / 360.0);
+      odrv_leftleg.SetPosition(1, (validated_packet_data.left_knee * GEAR_RATIO) / 360.0);
+      odrv_rightleg.SetPosition(1, (validated_packet_data.right_knee * GEAR_RATIO) / 360.0);
+      odrv_leftarm.SetPosition(1, (validated_packet_data.left_elbow * GEAR_RATIO) / 360.0);
+      odrv_rightarm.SetPosition(1, (validated_packet_data.right_elbow * GEAR_RATIO) / 360.0);
     }
   }
 }
