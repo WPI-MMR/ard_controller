@@ -46,6 +46,7 @@ struct JointAngleStruct {
 
 JointAngleStruct temporary_packet_data;
 JointAngleStruct validated_packet_data;
+JointAngleStruct joint_angle_goal;
 
 HardwareSerial& odrv_leftleg_ser = Serial2;
 HardwareSerial& odrv_rightleg_ser = Serial3;
@@ -266,6 +267,10 @@ void rx_processor() {
           validated_packet_data.packet_available = temporary_packet_data.packet_available;
           validated_packet_data.data_request = temporary_packet_data.data_request;
 
+          if (!validated_packet_data.data_request) {
+            joint_angle_goal = temporary_packet_data;
+          }
+
           sr_state = INIT;
         }
         else {
@@ -284,34 +289,34 @@ void rx_processor() {
 // reads current position estimate from odrive and stores in global array
 void update_cur_pos() {
   odrv_leftleg_ser.write("r axis0.encoder.pos_estimate\n"); // left hip
-  cur_joint_pos[0] = constrain(fmod(odrv_leftleg.readFloat(), 360), 0, 360);
+  cur_joint_pos[0] = constrain(fmod(odrv_leftleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
   odrv_leftleg_ser.write("r axis1.encoder.pos_estimate\n"); // left knee
-  cur_joint_pos[1] = constrain(fmod(odrv_leftleg.readFloat(), 360), 0, 360);
-  odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
-  cur_joint_pos[2] = constrain(fmod(odrv_rightleg.readFloat(), 360), 0, 360);
-  odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
-  cur_joint_pos[3] = constrain(fmod(odrv_rightleg.readFloat(), 360), 0, 360);
+  cur_joint_pos[1] = constrain(fmod(odrv_leftleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  // odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
+  // cur_joint_pos[2] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  // odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
+  // cur_joint_pos[3] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
 
-  odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
-  cur_joint_pos[4] = constrain(fmod(odrv_leftarm.readFloat(), 360), 0, 360);
-  odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
-  cur_joint_pos[5] = constrain(fmod(odrv_leftarm.readFloat(), 360), 0, 360);
-  odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
-  cur_joint_pos[6] = constrain(fmod(odrv_rightarm.readFloat(), 360), 0, 360);
-  odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
-  cur_joint_pos[7] = constrain(fmod(odrv_rightarm.readFloat(), 360), 0, 360);
+  // odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
+  // cur_joint_pos[4] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  // odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
+  // cur_joint_pos[5] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  // odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
+  // cur_joint_pos[6] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  // odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
+  // cur_joint_pos[7] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
 }
 
 // test if the current position is at the goal position
 bool eval_at_goal() {
-  int l_hip = validated_packet_data.left_hip;
-  int l_knee = validated_packet_data.left_knee;
-  int r_hip = validated_packet_data.right_hip;
-  int r_knee = validated_packet_data.right_knee;
-  int l_sh = validated_packet_data.left_shoulder;
-  int l_elb = validated_packet_data.left_elbow;
-  int r_sh = validated_packet_data.right_shoulder;
-  int r_elb = validated_packet_data.right_elbow;
+  int l_hip = joint_angle_goal.left_hip;
+  int l_knee = joint_angle_goal.left_knee;
+  int r_hip = joint_angle_goal.right_hip;
+  int r_knee = joint_angle_goal.right_knee;
+  int l_sh = joint_angle_goal.left_shoulder;
+  int l_elb = joint_angle_goal.left_elbow;
+  int r_sh = joint_angle_goal.right_shoulder;
+  int r_elb = joint_angle_goal.right_elbow;
 
   if (!(cur_joint_pos[0] <= l_hip + (l_hip*0.05) && cur_joint_pos[0] >= l_hip - (l_hip*0.05))) {
     return false;
@@ -348,11 +353,17 @@ void sensor_data_response() {
   int b1, b2;
 
   int goal = eval_at_goal();
-  dump_cur_joint_pos();
+  // dump_cur_joint_pos();
 
   // send preamble
   for (int i = 0; i < PREAMBLE_LENGTH; i++) {
     Serial1.write((byte)255);
+  }
+
+  // send IMU data (sending 0's since IMU not installed)
+  for (int i = 0; i < NUM_IMU_AXES; i++) {
+    Serial1.write((byte)0);
+    Serial1.write((byte)0);
   }
 
   // send current joint angle data
@@ -364,12 +375,6 @@ void sensor_data_response() {
 
     Serial1.write((byte)b1);
     Serial1.write((byte)b2);
-  }
-
-  // send IMU data (sending 0's since IMU not installed)
-  for (int i = 0; i < NUM_IMU_AXES; i++) {
-    Serial1.write((byte)0);
-    Serial1.write((byte)0);
   }
 
   // send at_goal flag
@@ -401,12 +406,22 @@ void setup() {
   odrv_rightleg.run_state(1, requested_state, false);
   odrv_leftarm.run_state(1, requested_state, false); // elbows
   odrv_rightarm.run_state(1, requested_state, false);
+
+  // initialize goal to 0 so that if a data request comes in before a goal is given, no error occurs
+  joint_angle_goal.left_hip = 0;
+  joint_angle_goal.left_knee = 0;
+  joint_angle_goal.right_hip = 0;
+  joint_angle_goal.right_knee = 0;
+  joint_angle_goal.left_shoulder = 0;
+  joint_angle_goal.left_elbow = 0;
+  joint_angle_goal.right_shoulder = 0;
+  joint_angle_goal.right_elbow = 0;
 }
 
 void loop() {
   rx_processor();
   if (validated_packet_data.packet_available) {
-    dump_validated_packet_data();
+    // dump_validated_packet_data();
     validated_packet_data.packet_available = false;
 
     if (validated_packet_data.data_request) {
