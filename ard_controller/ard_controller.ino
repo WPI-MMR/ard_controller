@@ -8,6 +8,7 @@
 #define NUM_IMU_AXES 3
 #define PREAMBLE_LENGTH 4
 #define DATA_BYTE_LENGTH 2
+#define DEADBAND 3
 
 enum SerialReadState {
   INIT,
@@ -60,7 +61,7 @@ ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
 bool write_flag = false;
 
-unsigned int cur_joint_pos[] = {
+int cur_joint_pos[] = {
   0, 0, 0, 0, 0, 0, 0, 0
 };
 
@@ -292,19 +293,19 @@ void update_cur_pos() {
   cur_joint_pos[0] = constrain(fmod(odrv_leftleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
   odrv_leftleg_ser.write("r axis1.encoder.pos_estimate\n"); // left knee
   cur_joint_pos[1] = constrain(fmod(odrv_leftleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
-  // odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
-  // cur_joint_pos[2] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
-  // odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
-  // cur_joint_pos[3] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
+  cur_joint_pos[2] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
+  cur_joint_pos[3] = constrain(fmod(odrv_rightleg.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
 
-  // odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
-  // cur_joint_pos[4] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
-  // odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
-  // cur_joint_pos[5] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
-  // odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
-  // cur_joint_pos[6] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
-  // odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
-  // cur_joint_pos[7] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
+  cur_joint_pos[4] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
+  cur_joint_pos[5] = constrain(fmod(odrv_leftarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
+  cur_joint_pos[6] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
+  odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
+  cur_joint_pos[7] = constrain(fmod(odrv_rightarm.readFloat()*(360/GEAR_RATIO), 360), 0, 360);
 }
 
 // test if the current position is at the goal position
@@ -318,28 +319,28 @@ bool eval_at_goal() {
   int r_sh = joint_angle_goal.right_shoulder;
   int r_elb = joint_angle_goal.right_elbow;
 
-  if (!(cur_joint_pos[0] <= l_hip + (l_hip*0.05) && cur_joint_pos[0] >= l_hip - (l_hip*0.05))) {
+  if (!(cur_joint_pos[0] <= l_hip + DEADBAND && cur_joint_pos[0] >= l_hip - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[1] <= l_knee + (l_knee*0.05) && cur_joint_pos[1] >= l_knee - (l_knee*0.05))) {
+  if (!(cur_joint_pos[1] <= l_knee + DEADBAND && cur_joint_pos[1] >= l_knee - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[2] <= r_hip + (r_hip*0.05) && cur_joint_pos[2] >= r_hip - (r_hip*0.05))) {
+  if (!(cur_joint_pos[2] <= r_hip + DEADBAND && cur_joint_pos[2] >= r_hip - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[3] <= r_knee + (r_knee*0.05) && cur_joint_pos[3] >= r_knee - (r_knee*0.05))) {
+  if (!(cur_joint_pos[3] <= r_knee + DEADBAND && cur_joint_pos[3] >= r_knee - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[4] <= l_sh + (l_sh*0.05) && cur_joint_pos[4] >= l_sh - (l_sh*0.05))) {
+  if (!(cur_joint_pos[4] <= l_sh + DEADBAND && cur_joint_pos[4] >= l_sh - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[5] <= l_elb + (l_elb*0.05) && cur_joint_pos[5] >= l_elb - (l_elb*0.05))) {
+  if (!(cur_joint_pos[5] <= l_elb + DEADBAND && cur_joint_pos[5] >= l_elb - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[6] <= r_sh + (r_sh*0.05) && cur_joint_pos[6] >= r_sh - (r_sh*0.05))) {
+  if (!(cur_joint_pos[6] <= r_sh + DEADBAND && cur_joint_pos[6] >= r_sh - DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[7] <= r_elb + (r_elb*0.05) && cur_joint_pos[7] >= r_elb - (r_elb*0.05))) {
+  if (!(cur_joint_pos[7] <= r_elb + DEADBAND && cur_joint_pos[7] >= r_elb - DEADBAND)) {
     return false;
   }
 
