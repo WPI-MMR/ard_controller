@@ -13,6 +13,7 @@
 enum SerialReadState {
   INIT,
   READ_PREAMBLE,
+  READ_DATA_REQUEST,
   READ_L_HIP,
   READ_L_KNEE,
   READ_R_HIP,
@@ -159,30 +160,30 @@ void rx_processor() {
           preamble_counter--;
           if (preamble_counter == 0) {
             preamble_counter = PREAMBLE_LENGTH;
-            sr_state = READ_L_HIP;
+            sr_state = READ_DATA_REQUEST;
           }
         }
         else {
           preamble_counter = PREAMBLE_LENGTH;
         }
         break;
-      case READ_L_HIP:
-        // this is different than other cases as it needs to catch a request for sensor data
-        if (data_byte_counter == 1 && temporary_packet_data.left_hip == received_data) {
+      case READ_DATA_REQUEST:
+        if (received_data > 0) {
           temporary_packet_data.data_request = true;
-          temporary_packet_data.left_hip += received_data;
-          calculated_checksum += received_data;
-          data_byte_counter = DATA_BYTE_LENGTH;
           sr_state = READ_CHECKSUM;
+        } else {
+          temporary_packet_data.data_request = false;
+          sr_state = READ_L_HIP;
         }
-        else {
-          temporary_packet_data.left_hip += received_data;
-          calculated_checksum += received_data;
-          data_byte_counter--;
-          if (data_byte_counter == 0) {
-            data_byte_counter = DATA_BYTE_LENGTH;
-            sr_state = READ_L_KNEE;
-          }
+        calculated_checksum += received_data;
+        break;
+      case READ_L_HIP:
+        temporary_packet_data.left_hip += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          sr_state = READ_L_KNEE;
         }
         break;
       case READ_L_KNEE:
