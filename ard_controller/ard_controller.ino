@@ -49,6 +49,11 @@ JointAngleStruct temporary_packet_data;
 JointAngleStruct validated_packet_data;
 JointAngleStruct joint_angle_goal;
 
+// rename Serial1 to represent that it talks to the raspi
+HardwareSerial& raspi_ser = Serial1;
+
+// Serial2, 3, 4, and 5 are built in variables defined by the Teensy board definition
+// these lines simply rename the serial objects to represent the odrive they're tied to
 HardwareSerial& odrv_leftleg_ser = Serial2;
 HardwareSerial& odrv_rightleg_ser = Serial3;
 HardwareSerial& odrv_leftarm_ser = Serial4;
@@ -123,9 +128,9 @@ void rx_processor() {
   static int calculated_checksum = 0xFF; // We have to keep a running checksum of incoming data to verify validity
   int received_data; // The current int read from the RPi
 
-  if (Serial1.available() > 0) {
+  if (raspi_ser.available() > 0) {
     if (sr_state != INIT) {
-      received_data = Serial1.read();
+      received_data = raspi_ser.read();
       // Serial.println(received_data);
     }
 
@@ -319,28 +324,28 @@ bool eval_at_goal() {
   int r_sh = joint_angle_goal.right_shoulder;
   int r_elb = joint_angle_goal.right_elbow;
 
-  if (!(cur_joint_pos[0] <= l_hip + DEADBAND && cur_joint_pos[0] >= l_hip - DEADBAND)) {
+  if (!(abs(cur_joint_pos[0] - l_hip) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[1] <= l_knee + DEADBAND && cur_joint_pos[1] >= l_knee - DEADBAND)) {
+  if (!(abs(cur_joint_pos[1] - l_knee) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[2] <= r_hip + DEADBAND && cur_joint_pos[2] >= r_hip - DEADBAND)) {
+  if (!(abs(cur_joint_pos[2] - r_hip) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[3] <= r_knee + DEADBAND && cur_joint_pos[3] >= r_knee - DEADBAND)) {
+  if (!(abs(cur_joint_pos[3] - r_knee) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[4] <= l_sh + DEADBAND && cur_joint_pos[4] >= l_sh - DEADBAND)) {
+  if (!(abs(cur_joint_pos[4] - l_sh) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[5] <= l_elb + DEADBAND && cur_joint_pos[5] >= l_elb - DEADBAND)) {
+  if (!(abs(cur_joint_pos[5] - l_elb) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[6] <= r_sh + DEADBAND && cur_joint_pos[6] >= r_sh - DEADBAND)) {
+  if (!(abs(cur_joint_pos[6] - r_sh) <= DEADBAND)) {
     return false;
   }
-  if (!(cur_joint_pos[7] <= r_elb + DEADBAND && cur_joint_pos[7] >= r_elb - DEADBAND)) {
+  if (!(abs(cur_joint_pos[7] - r_elb) <= DEADBAND)) {
     return false;
   }
 
@@ -358,13 +363,13 @@ void sensor_data_response() {
 
   // send preamble
   for (int i = 0; i < PREAMBLE_LENGTH; i++) {
-    Serial1.write((byte)255);
+    raspi_ser.write((byte)255);
   }
 
   // send IMU data (sending 0's since IMU not installed)
   for (int i = 0; i < NUM_IMU_AXES; i++) {
-    Serial1.write((byte)0);
-    Serial1.write((byte)0);
+    raspi_ser.write((byte)0);
+    raspi_ser.write((byte)0);
   }
 
   // send current joint angle data
@@ -374,22 +379,22 @@ void sensor_data_response() {
     b1 = angle / 256 > 0 ? 255 : angle;
     b2 = angle / 256 > 0 ? angle % 255 : 0;
 
-    Serial1.write((byte)b1);
-    Serial1.write((byte)b2);
+    raspi_ser.write((byte)b1);
+    raspi_ser.write((byte)b2);
   }
 
   // send at_goal flag
   raw_sum += goal;
-  Serial1.write((byte)goal);
+  raspi_ser.write((byte)goal);
 
   // send checksum
   checksum = 255 - raw_sum % 256;
-  Serial1.write((byte)checksum);
+  raspi_ser.write((byte)checksum);
 }
 
 void setup() {
   Serial.begin(115200); // console
-  Serial1.begin(115200); // raspi comms
+  raspi_ser.begin(115200); // raspi comms
 
   // start serial connection to ODrives
   odrv_leftleg_ser.begin(115200);
