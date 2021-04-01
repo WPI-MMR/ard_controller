@@ -1,3 +1,8 @@
+/**
+ * NOTE: Software Serial should only be used in applications in which there are not enough
+ * hardware serial ports on the microcontroller or SBC being used
+ */
+
 #include <ODriveArduino.h>
 #include <soft_uart.h>
 
