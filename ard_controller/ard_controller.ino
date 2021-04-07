@@ -304,25 +304,25 @@ void update_cur_pos() {
   odrv_leftleg_ser.write("r axis1.encoder.pos_estimate\n"); // left knee
   cur_raw_pos[1] = odrv_leftleg.readFloat();
   cur_joint_pos[1] = fmod(cur_raw_pos[1]*(360/GEAR_RATIO), 360);
-  odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
-  cur_raw_pos[2] = odrv_rightleg.readFloat();
-  cur_joint_pos[2] = fmod(cur_raw_pos[2]*(360/GEAR_RATIO), 360);
-  odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
-  cur_raw_pos[3] = odrv_rightleg.readFloat();
-  cur_joint_pos[3] = fmod(cur_raw_pos[3]*(360/GEAR_RATIO), 360);
+  // odrv_rightleg_ser.write("r axis0.encoder.pos_estimate\n"); // right hip
+  // cur_raw_pos[2] = odrv_rightleg.readFloat();
+  // cur_joint_pos[2] = fmod(cur_raw_pos[2]*(360/GEAR_RATIO), 360);
+  // odrv_rightleg_ser.write("r axis1.encoder.pos_estimate\n"); // right knee
+  // cur_raw_pos[3] = odrv_rightleg.readFloat();
+  // cur_joint_pos[3] = fmod(cur_raw_pos[3]*(360/GEAR_RATIO), 360);
 
-  odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
-  cur_raw_pos[4] = odrv_leftarm.readFloat();
-  cur_joint_pos[4] = fmod(cur_raw_pos[4]*(360/GEAR_RATIO), 360);
-  odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
-  cur_raw_pos[5] = odrv_leftarm.readFloat();
-  cur_joint_pos[5] = fmod(cur_raw_pos[5]*(360/GEAR_RATIO), 360);
-  odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
-  cur_raw_pos[6] = odrv_rightarm.readFloat();
-  cur_joint_pos[6] = fmod(cur_raw_pos[6]*(360/GEAR_RATIO), 360);
-  odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
-  cur_raw_pos[7] = odrv_rightarm.readFloat();
-  cur_joint_pos[7] = fmod(cur_raw_pos[7]*(360/GEAR_RATIO), 360);
+  // odrv_leftarm_ser.write("r axis0.encoder.pos_estimate\n"); // left shoulder
+  // cur_raw_pos[4] = odrv_leftarm.readFloat();
+  // cur_joint_pos[4] = fmod(cur_raw_pos[4]*(360/GEAR_RATIO), 360);
+  // odrv_leftarm_ser.write("r axis1.encoder.pos_estimate\n"); // left elbow
+  // cur_raw_pos[5] = odrv_leftarm.readFloat();
+  // cur_joint_pos[5] = fmod(cur_raw_pos[5]*(360/GEAR_RATIO), 360);
+  // odrv_rightarm_ser.write("r axis0.encoder.pos_estimate\n"); // right shoulder
+  // cur_raw_pos[6] = odrv_rightarm.readFloat();
+  // cur_joint_pos[6] = fmod(cur_raw_pos[6]*(360/GEAR_RATIO), 360);
+  // odrv_rightarm_ser.write("r axis1.encoder.pos_estimate\n"); // right elbow
+  // cur_raw_pos[7] = odrv_rightarm.readFloat();
+  // cur_joint_pos[7] = fmod(cur_raw_pos[7]*(360/GEAR_RATIO), 360);
 
   // verify everything is 0-360 for consistency
   for (int i = 0; i < NUM_JOINTS; i++) {
@@ -414,6 +414,7 @@ int deg_dist(int initial, int final) {
   int result = diff > 180 ? 360 - diff : diff;
   int sign = (initial-final >= 0 && initial-final <=180) || (initial-final <= -180 && initial-final >= -360) ? 1 : -1;
 
+  Serial.println(result * sign);
   return result * sign;
 }
 
@@ -421,14 +422,14 @@ void run_motors() {
   int left_hip_setpoint, left_knee_setpoint, right_hip_setpoint, right_knee_setpoint;
   int left_sh_setpoint, left_elb_setpoint, right_sh_setpoint, right_elb_setpoint;
 
-  left_hip_setpoint = cur_raw_pos[0] + (deg_dist(cur_joint_pos[0], joint_angle_goal.left_hip) * (GEAR_RATIO/360));
-  left_knee_setpoint = cur_raw_pos[1] + (deg_dist(cur_joint_pos[1], joint_angle_goal.left_knee) * (GEAR_RATIO/360));
-  right_hip_setpoint = cur_raw_pos[2] + (deg_dist(cur_joint_pos[2], joint_angle_goal.right_hip) * (GEAR_RATIO/360));
-  right_knee_setpoint = cur_raw_pos[3] + (deg_dist(cur_joint_pos[3], joint_angle_goal.right_knee) * (GEAR_RATIO/360));
-  left_sh_setpoint = cur_raw_pos[4] + (deg_dist(cur_joint_pos[4], joint_angle_goal.left_shoulder) * (GEAR_RATIO/360));
-  left_elb_setpoint = cur_raw_pos[5] + (deg_dist(cur_joint_pos[5], joint_angle_goal.left_elbow) * (GEAR_RATIO/360));
-  right_sh_setpoint = cur_raw_pos[6] + (deg_dist(cur_joint_pos[6], joint_angle_goal.right_shoulder) * (GEAR_RATIO/360));
-  right_elb_setpoint = cur_raw_pos[7] + (deg_dist(cur_joint_pos[7], joint_angle_goal.right_elbow) * (GEAR_RATIO/360));
+  left_hip_setpoint = cur_raw_pos[0] + (deg_dist(cur_joint_pos[0], joint_angle_goal.left_hip) * (GEAR_RATIO/360.0));
+  left_knee_setpoint = cur_raw_pos[1] + (deg_dist(cur_joint_pos[1], joint_angle_goal.left_knee) * (GEAR_RATIO/360.0));
+  right_hip_setpoint = cur_raw_pos[2] + (deg_dist(cur_joint_pos[2], joint_angle_goal.right_hip) * (GEAR_RATIO/360.0));
+  right_knee_setpoint = cur_raw_pos[3] + (deg_dist(cur_joint_pos[3], joint_angle_goal.right_knee) * (GEAR_RATIO/360.0));
+  left_sh_setpoint = cur_raw_pos[4] + (deg_dist(cur_joint_pos[4], joint_angle_goal.left_shoulder) * (GEAR_RATIO/360.0));
+  left_elb_setpoint = cur_raw_pos[5] + (deg_dist(cur_joint_pos[5], joint_angle_goal.left_elbow) * (GEAR_RATIO/360.0));
+  right_sh_setpoint = cur_raw_pos[6] + (deg_dist(cur_joint_pos[6], joint_angle_goal.right_shoulder) * (GEAR_RATIO/360.0));
+  right_elb_setpoint = cur_raw_pos[7] + (deg_dist(cur_joint_pos[7], joint_angle_goal.right_elbow) * (GEAR_RATIO/360.0));
 
   odrv_leftleg.SetPosition(0, left_hip_setpoint);
   odrv_leftleg.SetPosition(1, left_knee_setpoint);
@@ -475,7 +476,10 @@ void setup() {
 void loop() {
   rx_processor();
   if (validated_packet_data.packet_available) {
-    // dump_validated_packet_data();
+    if (!validated_packet_data.data_request) {
+      dump_validated_packet_data();
+    }
+
     validated_packet_data.packet_available = false;
     update_cur_pos();
 
