@@ -55,10 +55,10 @@ HardwareSerial& raspi_ser = Serial1;
 
 // Serial2, 3, 4, and 5 are built in variables defined by the Teensy board definition
 // these lines simply rename the serial objects to represent the odrive they're tied to
-HardwareSerial& odrv_leftleg_ser = Serial2;
 HardwareSerial& odrv_rightleg_ser = Serial3;
-HardwareSerial& odrv_leftarm_ser = Serial4;
+HardwareSerial& odrv_leftleg_ser = Serial2;
 HardwareSerial& odrv_rightarm_ser = Serial5;
+HardwareSerial& odrv_leftarm_ser = Serial4;
 
 ODriveArduino odrv_leftleg(odrv_leftleg_ser);
 ODriveArduino odrv_rightleg(odrv_rightleg_ser);
@@ -74,6 +74,7 @@ int cur_joint_pos[] = {
 char buffer[128]; // buffer for printf
 
 void dump_validated_packet_data() {
+  // 353   3   4   4   5   1   5 358  34   0   0   0
   sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
           validated_packet_data.left_hip,
           validated_packet_data.left_knee,
@@ -132,7 +133,7 @@ void rx_processor() {
   if (raspi_ser.available() > 0) {
     if (sr_state != INIT) {
       received_data = raspi_ser.read();
-      // Serial.println(received_data);
+      //Serial.println(received_data);
     }
 
     switch (sr_state)
@@ -169,9 +170,11 @@ void rx_processor() {
         break;
       case READ_DATA_REQUEST:
         if (received_data > 0) {
+          //Serial.println("Data request");
           temporary_packet_data.data_request = true;
           sr_state = READ_CHECKSUM;
         } else {
+          //Serial.println("Joint angles");
           temporary_packet_data.data_request = false;
           sr_state = READ_L_HIP;
         }
@@ -255,6 +258,7 @@ void rx_processor() {
         // calculated checksum must match received checksum; otherwise there's an error
         if (temporary_packet_data.checksum == 0xFF - (calculated_checksum % 256)) {
           // good packet
+          //Serial.println("Good checksum");
           calculated_checksum = 0x00;
           preamble_counter = PREAMBLE_LENGTH;
 
@@ -281,6 +285,7 @@ void rx_processor() {
           sr_state = INIT;
         }
         else {
+          //Serial.println("Bad checksum");
           temporary_packet_data.checksum_error = true;
           temporary_packet_data.packet_available = false;
           sr_state = INIT;
@@ -394,7 +399,9 @@ void sensor_data_response() {
 }
 
 void setup() {
+  delay(10000);
   Serial.begin(115200); // console
+  Serial.print("Delay over");
   raspi_ser.begin(115200); // raspi comms
 
   // start serial connection to ODrives
@@ -425,26 +432,49 @@ void setup() {
   joint_angle_goal.right_elbow = 0;
 }
 
+int convert_to_half_range(int angle, int home_offset){
+  if (angle > 180){
+    angle = angle - 360;
+  }
+  angle = angle + home_offset;
+  return constrain(angle, -90, 90);
+}
+
 void loop() {
+
+ 
   rx_processor();
   if (validated_packet_data.packet_available) {
     // dump_validated_packet_data();
     validated_packet_data.packet_available = false;
 
     if (validated_packet_data.data_request) {
+      //Serial.println("Requesting data");
       update_cur_pos();
       sensor_data_response();
     }
     else {
+      //Home offset value in terms of dump validated data format
+      ///353   3   4   4   5   1   5 358  34   0   0   0
+      dump_validated_packet_data();
       // we received a new joint angle goal; get to it
-      odrv_leftleg.SetPosition(0, (validated_packet_data.left_hip * GEAR_RATIO) / 360.0);
-      odrv_rightleg.SetPosition(0, (validated_packet_data.right_hip * GEAR_RATIO) / 360.0);
-      odrv_leftarm.SetPosition(0, (validated_packet_data.left_shoulder * GEAR_RATIO) / 360.0);
-      odrv_rightarm.SetPosition(0, (validated_packet_data.right_shoulder * GEAR_RATIO) / 360.0);
-      odrv_leftleg.SetPosition(1, (validated_packet_data.left_knee * GEAR_RATIO) / 360.0);
-      odrv_rightleg.SetPosition(1, (validated_packet_data.right_knee * GEAR_RATIO) / 360.0);
-      odrv_leftarm.SetPosition(1, (validated_packet_data.left_elbow * GEAR_RATIO) / 360.0);
-      odrv_rightarm.SetPosition(1, (validated_packet_data.right_elbow * GEAR_RATIO) / 360.0);
+      odrv_leftleg.SetPosition(0, (-convert_to_half_range(validated_packet_data.left_hip, -7) * GEAR_RATIO) / 360.0);
+      odrv_rightleg.SetPosition(0, (convert_to_half_range(validated_packet_data.right_hip, 5) * GEAR_RATIO) / 360.0);
+      odrv_leftarm.SetPosition(0, (-convert_to_half_range(validated_packet_data.left_shoulder, -2) * GEAR_RATIO) / 360.0);
+      odrv_rightarm.SetPosition(0, (convert_to_half_range(validated_packet_data.right_shoulder, 5) * GEAR_RATIO) / 360.0);
+      odrv_leftleg.SetPosition(1, (-convert_to_half_range(validated_packet_data.left_knee, -5) * GEAR_RATIO) / 360.0);
+      odrv_rightleg.SetPosition(1, (convert_to_half_range(validated_packet_data.right_knee, 4) * GEAR_RATIO) / 360.0);
+      odrv_leftarm.SetPosition(1, (-convert_to_half_range(validated_packet_data.left_elbow, -7) * GEAR_RATIO) / 360.0);
+      odrv_rightarm.SetPosition(1, (convert_to_half_range(validated_packet_data.right_elbow, 1) * GEAR_RATIO) / 360.0);
+
+//      odrv_leftleg.SetPosition(0, (convert_to_half_range(validated_packet_data.left_hip, -7) * GEAR_RATIO) / 360.0);
+//      odrv_rightleg.SetPosition(0, (-convert_to_half_range(validated_packet_data.right_hip, 4) * GEAR_RATIO) / 360.0);
+//      odrv_leftarm.SetPosition(0, (convert_to_half_range(validated_packet_data.left_shoulder, 5) * GEAR_RATIO) / 360.0);
+//      odrv_rightarm.SetPosition(0, (-convert_to_half_range(validated_packet_data.right_shoulder, 5) * GEAR_RATIO) / 360.0);
+//      odrv_leftleg.SetPosition(1, (convert_to_half_range(validated_packet_data.left_knee, 3) * GEAR_RATIO) / 360.0);
+//      odrv_rightleg.SetPosition(1, (-convert_to_half_range(validated_packet_data.right_knee, 4) * GEAR_RATIO) / 360.0);
+//      odrv_leftarm.SetPosition(1, (convert_to_half_range(validated_packet_data.left_elbow, 1) * GEAR_RATIO) / 360.0);
+//      odrv_rightarm.SetPosition(1, (-convert_to_half_range(validated_packet_data.right_elbow, -2) * GEAR_RATIO) / 360.0);
     }
   }
 }
