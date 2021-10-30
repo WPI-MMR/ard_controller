@@ -55,10 +55,10 @@ HardwareSerial& raspi_ser = Serial1;
 
 // Serial2, 3, 4, and 5 are built in variables defined by the Teensy board definition
 // these lines simply rename the serial objects to represent the odrive they're tied to
-HardwareSerial& odrv_leftleg_ser = Serial2;
-HardwareSerial& odrv_rightleg_ser = Serial3;
-HardwareSerial& odrv_leftarm_ser = Serial4;
-HardwareSerial& odrv_rightarm_ser = Serial5;
+HardwareSerial& odrv_leftleg_ser = Serial5; // 1L + 2L
+HardwareSerial& odrv_rightleg_ser = Serial3; // 1R + 2R
+HardwareSerial& odrv_leftarm_ser = Serial4; // 3L + 4L
+HardwareSerial& odrv_rightarm_ser = Serial2; // 3R + 4R
 
 ODriveArduino odrv_leftleg(odrv_leftleg_ser);
 ODriveArduino odrv_rightleg(odrv_rightleg_ser);
