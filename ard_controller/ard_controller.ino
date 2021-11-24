@@ -8,7 +8,7 @@
 #define NUM_IMU_AXES 3
 #define PREAMBLE_LENGTH 4
 #define DATA_BYTE_LENGTH 2
-#define DEADBAND 3
+#define DEADBAND 2
 
 enum SerialReadState {
   INIT,
@@ -490,17 +490,6 @@ void setup() {
   odrv_rightleg_ser.begin(115200);
   odrv_leftarm_ser.begin(115200);
   odrv_rightarm_ser.begin(115200);
-
-  // set all ODrive axes to closed loop control
-  int requested_state = ODriveArduino::AXIS_STATE_CLOSED_LOOP_CONTROL;
-  odrv_leftleg.run_state(0, requested_state, false); // hips
-  odrv_rightleg.run_state(0, requested_state, false);
-  odrv_leftarm.run_state(0, requested_state, false); // shoulders
-  odrv_rightarm.run_state(0, requested_state, false);
-  odrv_leftleg.run_state(1, requested_state, false); // knees
-  odrv_rightleg.run_state(1, requested_state, false);
-  odrv_leftarm.run_state(1, requested_state, false); // elbows
-  odrv_rightarm.run_state(1, requested_state, false);
 
   // initialize goal to 0 so that if a data request comes in before a goal is given, no error occurs
   joint_angle_goal.left_hip = 0;
