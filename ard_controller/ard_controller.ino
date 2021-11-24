@@ -296,11 +296,17 @@ void rx_processor() {
           }
 
           sr_state = INIT;
+
+          // send success ack
+          setpoint_received_ack(1);
         }
         else {
           temporary_packet_data.checksum_error = true;
           temporary_packet_data.packet_available = false;
           sr_state = INIT;
+
+          // send failure ack
+          setpoint_received_ack(2);
         }
         break;
       default:
@@ -383,6 +389,24 @@ bool eval_at_goal() {
   return true;
 }
 
+void setpoint_received_ack(int success) {
+  int raw_sum = 0;
+  int checksum;
+
+  // send preamble
+  for (int i = 0; i < PREAMBLE_LENGTH; i++) {
+    raspi_ser.write((byte)255);
+  }
+
+  // send setpoint ack byte
+  raw_sum += success;
+  raspi_ser.write((byte)success);
+
+  // send checksum
+  checksum = 255 - raw_sum % 256
+  raspi_ser.write((byte)checksum)
+}
+
 void sensor_data_response() {
   int raw_sum = 0;
   int checksum;
@@ -402,6 +426,9 @@ void sensor_data_response() {
     raspi_ser.write((byte)0);
     raspi_ser.write((byte)0);
   }
+
+  //send 'not setpoint ack' byte
+  raspi_ser.write((byte)0);
 
   // send current joint angle data
   for (int i = 0; i < NUM_JOINTS; i++) {
