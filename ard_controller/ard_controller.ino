@@ -66,6 +66,7 @@ ODriveArduino odrv_leftarm(odrv_leftarm_ser);
 ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
 bool write_flag = false;
+bool ack_flag = false;
 
 int cur_joint_pos[] = {
   0, 0, 0, 0, 0, 0, 0, 0
@@ -293,9 +294,7 @@ void rx_processor() {
 
           if (!validated_packet_data.data_request) {
             joint_angle_goal = temporary_packet_data;
-
-            // send success ack
-            setpoint_received_ack(1);
+            ack_flag = true;
           }
 
           sr_state = INIT;
@@ -508,6 +507,10 @@ void loop() {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
+    if (!validated_packet_data.data_request && ack_flag) {
+      setpoint_received_ack(1);
+      ack_flag = false;
+    }
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
