@@ -403,8 +403,8 @@ void setpoint_received_ack(int success) {
   raspi_ser.write((byte)success);
 
   // send checksum
-  checksum = 255 - raw_sum % 256
-  raspi_ser.write((byte)checksum)
+  checksum = 255 - raw_sum % 256;
+  raspi_ser.write((byte)checksum);
 }
 
 void sensor_data_response() {
