@@ -293,12 +293,12 @@ void rx_processor() {
 
           if (!validated_packet_data.data_request) {
             joint_angle_goal = temporary_packet_data;
+
+            // send success ack
+            setpoint_received_ack(1);
           }
 
           sr_state = INIT;
-
-          // send success ack
-          setpoint_received_ack(1);
         }
         else {
           temporary_packet_data.checksum_error = true;
@@ -306,7 +306,7 @@ void rx_processor() {
           sr_state = INIT;
 
           // send failure ack
-          setpoint_received_ack(2);
+          // setpoint_received_ack(2);
         }
         break;
       default:
