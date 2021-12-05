@@ -10,6 +10,10 @@
 #define DATA_BYTE_LENGTH 2
 #define DEADBAND 2
 
+#define NO_ACK 0
+#define SUCCESS_ACK 1
+#define FAILURE_ACK 2
+
 enum SerialReadState {
   INIT,
   READ_PREAMBLE,
@@ -66,7 +70,8 @@ ODriveArduino odrv_leftarm(odrv_leftarm_ser);
 ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
 bool write_flag = false;
-bool ack_flag = false;
+bool send_ack = false;
+bool ack_error = false;
 
 int cur_joint_pos[] = {
   0, 0, 0, 0, 0, 0, 0, 0
@@ -294,10 +299,13 @@ void rx_processor() {
 
           if (!validated_packet_data.data_request) {
             joint_angle_goal = temporary_packet_data;
-            ack_flag = true;
           }
 
           sr_state = INIT;
+
+          // send success ack
+          send_ack = true;
+          ack_error = false;
         }
         else {
           temporary_packet_data.checksum_error = true;
@@ -305,7 +313,8 @@ void rx_processor() {
           sr_state = INIT;
 
           // send failure ack
-          // setpoint_received_ack(2);
+          send_ack = true;
+          ack_error = true;
         }
         break;
       default:
@@ -388,25 +397,7 @@ bool eval_at_goal() {
   return true;
 }
 
-void setpoint_received_ack(int success) {
-  int raw_sum = 0;
-  int checksum;
-
-  // send preamble
-  for (int i = 0; i < PREAMBLE_LENGTH; i++) {
-    raspi_ser.write((byte)255);
-  }
-
-  // send setpoint ack byte
-  raw_sum += success;
-  raspi_ser.write((byte)success);
-
-  // send checksum
-  checksum = 255 - raw_sum % 256;
-  raspi_ser.write((byte)checksum);
-}
-
-void sensor_data_response() {
+void data_response() {
   int raw_sum = 0;
   int checksum;
   int angle;
@@ -426,9 +417,6 @@ void sensor_data_response() {
     raspi_ser.write((byte)0);
   }
 
-  //send 'not setpoint ack' byte
-  raspi_ser.write((byte)0);
-
   // send current joint angle data
   for (int i = 0; i < NUM_JOINTS; i++) {
     angle = cur_joint_pos[i];
@@ -443,6 +431,19 @@ void sensor_data_response() {
   // send at_goal flag
   raw_sum += goal;
   raspi_ser.write((byte)goal);
+
+  //send 'setpoint ack' byte
+  if (send_ack) {
+    if (ack_error) {
+      raspi_ser.write((byte)FAILURE_ACK);
+    }
+    else {
+      raspi_ser.write((byte)SUCCESS_ACK);
+    }
+  }
+  else {
+    raspi_ser.write((byte)NO_ACK);
+  }
 
   // send checksum
   checksum = 255 - raw_sum % 256;
@@ -507,18 +508,16 @@ void loop() {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
-    if (!validated_packet_data.data_request && ack_flag) {
-      setpoint_received_ack(1);
-      ack_flag = false;
-    }
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
+    data_response();
 
-    if (validated_packet_data.data_request) {
-      sensor_data_response();
+    if (send_ack) {
+      send_ack = false;
     }
-    else {
+
+    if (!validated_packet_data.data_request) {
       // we received a new joint angle goal; get to it
       // dump_cur_joint_pos();
       run_motors();
