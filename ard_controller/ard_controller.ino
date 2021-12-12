@@ -10,9 +10,8 @@
 #define DATA_BYTE_LENGTH 2
 #define DEADBAND 2
 
-#define NO_ACK 0
-#define SUCCESS_ACK 1
-#define FAILURE_ACK 2
+#define SUCCESS_ACK 0
+#define FAILURE_ACK 1
 
 enum SerialReadState {
   INIT,
@@ -32,6 +31,7 @@ enum SerialReadState {
 };
 
 SerialReadState sr_state = INIT;
+SerialReadState ja_read_state = INIT;
 
 struct JointAngleStruct {
   int left_hip;
@@ -52,10 +52,15 @@ struct JointAngleStruct {
 
 JointAngleStruct temporary_packet_data;
 JointAngleStruct validated_packet_data;
+
+JointAngleStruct ja_temporary_packet;
+JointAngleStruct ja_validated_packet;
+
 JointAngleStruct joint_angle_goal;
 
 // rename Serial1 to represent that it talks to the raspi
 HardwareSerial& raspi_ser = Serial1;
+HardwareSerial& ja_ser = Serial6;
 
 // Serial2, 3, 4, and 5 are built in variables defined by the Teensy board definition
 // these lines simply rename the serial objects to represent the odrive they're tied to
@@ -146,6 +151,166 @@ void dump_cur_raw_pos() {
   Serial.println(buffer);
 }
 
+// handles incoming joint angle setpoints
+void ja_rx() {
+  static int preamble_counter = PREAMBLE_LENGTH;   // Number of ints in the packet preamble
+  static int data_byte_counter = DATA_BYTE_LENGTH; // Number of ints per joint angle
+  static int calculated_checksum = 0xFF; // We have to keep a running checksum of incoming data to verify validity
+  int received_data; // The current int read from the RPi
+
+  if (ja_ser.available() > 0) {
+    if (ja_read_state != INIT) {
+      received_data = ja_ser.read();
+      // Serial.println(received_data);
+    }
+
+    switch (ja_read_state) {
+      case INIT:
+        calculated_checksum = 0x00;
+        preamble_counter = PREAMBLE_LENGTH;
+
+        ja_temporary_packet.left_hip = 0;
+        ja_temporary_packet.left_knee = 0;
+        ja_temporary_packet.right_hip = 0;
+        ja_temporary_packet.right_knee = 0;
+        ja_temporary_packet.left_shoulder = 0;
+        ja_temporary_packet.left_elbow = 0;
+        ja_temporary_packet.right_shoulder = 0;
+        ja_temporary_packet.right_elbow = 0;
+        ja_temporary_packet.checksum = 0;
+        ja_temporary_packet.checksum_error = false;
+        ja_temporary_packet.packet_available = false;
+        ja_temporary_packet.data_request = false;
+        ja_read_state = READ_PREAMBLE;
+        break;
+      case READ_PREAMBLE:
+        if (received_data == 0xFF) {
+          preamble_counter--;
+          if (preamble_counter == 0) {
+            preamble_counter = PREAMBLE_LENGTH;
+            ja_read_state = READ_L_HIP;
+          }
+        }
+        else {
+          preamble_counter = PREAMBLE_LENGTH;
+        }
+        break;
+      case READ_L_HIP:
+        ja_temporary_packet.left_hip += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_L_KNEE;
+        }
+        break;
+      case READ_L_KNEE:
+        ja_temporary_packet.left_knee += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_R_HIP;
+        }
+        break;
+      case READ_R_HIP:
+        ja_temporary_packet.right_hip += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_R_KNEE;
+        }
+        break;
+      case READ_R_KNEE:
+        ja_temporary_packet.right_knee += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_L_SHOULDER;
+        }
+        break;
+      case READ_L_SHOULDER:
+        ja_temporary_packet.left_shoulder += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_L_ELBOW;
+        }
+        break;
+      case READ_L_ELBOW:
+        ja_temporary_packet.left_elbow += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_R_SHOULDER;
+        }
+        break;
+      case READ_R_SHOULDER:
+        ja_temporary_packet.right_shoulder += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_R_ELBOW;
+        }
+        break;
+      case READ_R_ELBOW:
+        ja_temporary_packet.right_elbow += received_data;
+        calculated_checksum += received_data;
+        data_byte_counter--;
+        if (data_byte_counter == 0) {
+          data_byte_counter = DATA_BYTE_LENGTH;
+          ja_read_state = READ_CHECKSUM;
+        }
+        break;
+      case READ_CHECKSUM:
+        ja_temporary_packet.checksum = received_data;
+
+        // calculated checksum must match received checksum; otherwise there's an error
+        if (ja_temporary_packet.checksum == 0xFF - (calculated_checksum % 256)) {
+          // good packet
+          calculated_checksum = 0x00;
+          preamble_counter = PREAMBLE_LENGTH;
+
+          ja_temporary_packet.checksum_error = false;
+          ja_temporary_packet.packet_available = true;
+
+          ja_validated_packet.left_hip = ja_temporary_packet.left_hip;
+          ja_validated_packet.left_knee = ja_temporary_packet.left_knee;
+          ja_validated_packet.right_hip = ja_temporary_packet.right_hip;
+          ja_validated_packet.right_knee = ja_temporary_packet.right_knee;
+          ja_validated_packet.left_shoulder = ja_temporary_packet.left_shoulder;
+          ja_validated_packet.left_elbow = ja_temporary_packet.left_elbow;
+          ja_validated_packet.right_shoulder = ja_temporary_packet.right_shoulder;
+          ja_validated_packet.right_elbow = ja_temporary_packet.right_elbow;
+          ja_validated_packet.checksum = ja_temporary_packet.checksum;
+          ja_validated_packet.checksum_error = ja_temporary_packet.checksum_error;
+          ja_validated_packet.packet_available = ja_temporary_packet.packet_available;
+          ja_validated_packet.data_request = ja_temporary_packet.data_request;
+
+          // set internal goal tracker
+          joint_angle_goal = ja_temporary_packet;
+
+          ja_read_state = INIT;
+        }
+        else {
+          ja_temporary_packet.checksum_error = true;
+          ja_temporary_packet.packet_available = false;
+          ja_read_state = INIT;
+        }
+        break;
+      default:
+        ja_read_state = INIT;
+        break;
+    }
+  }
+}
+
+// handles data requests
 void rx_processor() {
   static int preamble_counter = PREAMBLE_LENGTH;   // Number of ints in the packet preamble
   static int data_byte_counter = DATA_BYTE_LENGTH; // Number of ints per joint angle
@@ -155,11 +320,10 @@ void rx_processor() {
   if (raspi_ser.available() > 0) {
     if (sr_state != INIT) {
       received_data = raspi_ser.read();
-       Serial.println(received_data);
+      // Serial.println(received_data);
     }
 
-    switch (sr_state)
-    {
+    switch (sr_state) {
       case INIT:
         calculated_checksum = 0x00;
         preamble_counter = PREAMBLE_LENGTH;
@@ -193,84 +357,11 @@ void rx_processor() {
       case READ_DATA_REQUEST:
         if (received_data > 0) {
           temporary_packet_data.data_request = true;
-          sr_state = READ_CHECKSUM;
         } else {
           temporary_packet_data.data_request = false;
-          sr_state = READ_L_HIP;
         }
+        sr_state = READ_CHECKSUM;
         calculated_checksum += received_data;
-        break;
-      case READ_L_HIP:
-        temporary_packet_data.left_hip += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_L_KNEE;
-        }
-        break;
-      case READ_L_KNEE:
-        temporary_packet_data.left_knee += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_R_HIP;
-        }
-        break;
-      case READ_R_HIP:
-        temporary_packet_data.right_hip += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_R_KNEE;
-        }
-        break;
-      case READ_R_KNEE:
-        temporary_packet_data.right_knee += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_L_SHOULDER;
-        }
-        break;
-      case READ_L_SHOULDER:
-        temporary_packet_data.left_shoulder += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_L_ELBOW;
-        }
-        break;
-      case READ_L_ELBOW:
-        temporary_packet_data.left_elbow += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_R_SHOULDER;
-        }
-        break;
-      case READ_R_SHOULDER:
-        temporary_packet_data.right_shoulder += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_R_ELBOW;
-        }
-        break;
-      case READ_R_ELBOW:
-        temporary_packet_data.right_elbow += received_data;
-        calculated_checksum += received_data;
-        data_byte_counter--;
-        if (data_byte_counter == 0) {
-          data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_CHECKSUM;
-        }
         break;
       case READ_CHECKSUM:
         temporary_packet_data.checksum = received_data;
@@ -297,30 +388,18 @@ void rx_processor() {
           validated_packet_data.packet_available = temporary_packet_data.packet_available;
           validated_packet_data.data_request = temporary_packet_data.data_request;
 
-          if (!validated_packet_data.data_request) {
-            joint_angle_goal = temporary_packet_data;
-          }
-
           sr_state = INIT;
-
-          // send success ack
-          send_ack = true;
-          ack_error = false;
         }
         else {
           temporary_packet_data.checksum_error = true;
           temporary_packet_data.packet_available = false;
           sr_state = INIT;
-
-          // send failure ack
-          send_ack = true;
-          ack_error = true;
         }
         break;
       default:
         sr_state = INIT;
         break;
-      }
+    }
   }
 }
 
@@ -397,6 +476,30 @@ bool eval_at_goal() {
   return true;
 }
 
+void send_ack(bool status) {
+  // send ack over ja_ser port
+  int raw_sum = 0;
+  int checksum;
+
+  // send preamble
+  for (int i = 0; i < PREAMBLE_LENGTH; i++) {
+    ja_ser.write((byte)255);
+  }
+
+  // send ack
+  if (status == true) {
+    raw_sum += SUCCESS_ACK;
+    ja_ser.write((byte)SUCCESS_ACK);
+  } else {
+    raw_sum += FAILURE_ACK;
+    ja_ser.write((byte)FAILURE_ACK);
+  }
+
+  // send checksum
+  checksum = 255 - raw_sum % 256;
+  ja_ser.write((byte)checksum);
+}
+
 void data_response() {
   int raw_sum = 0;
   int checksum;
@@ -431,19 +534,6 @@ void data_response() {
   // send at_goal flag
   raw_sum += goal;
   raspi_ser.write((byte)goal);
-
-  //send 'setpoint ack' byte
-  if (send_ack) {
-    if (ack_error) {
-      raspi_ser.write((byte)FAILURE_ACK);
-    }
-    else {
-      raspi_ser.write((byte)SUCCESS_ACK);
-    }
-  }
-  else {
-    raspi_ser.write((byte)NO_ACK);
-  }
 
   // send checksum
   checksum = 255 - raw_sum % 256;
@@ -503,28 +593,28 @@ void setup() {
 }
 
 void loop() {
+  ja_rx();
   rx_processor();
+
+  // handle joint angles setpoint received
+  if (ja_validated_packet.packet_available) {
+    ja_validated_packet.packet_available = false;
+
+    send_ack(true);
+    run_motors();
+  } else if (ja_temporary_packet.checksum_error) {
+    send_ack(false);
+  }
+
+  // handle data request received
   if (validated_packet_data.packet_available) {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
-    dump_validated_packet_data();
+    // dump_validated_packet_data();
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
-    data_response();
-
-    if (send_ack) {
-      send_ack = false;
-    }
-
-    if (!validated_packet_data.data_request) {
-      // we received a new joint angle goal; get to it
-      // dump_cur_joint_pos();
-      run_motors();
-    }
-  }
-  else if (temporary_packet_data.checksum_error) {
     data_response();
   }
 }
