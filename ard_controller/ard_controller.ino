@@ -155,7 +155,7 @@ void rx_processor() {
   if (raspi_ser.available() > 0) {
     if (sr_state != INIT) {
       received_data = raspi_ser.read();
-      // Serial.println(received_data);
+       Serial.println(received_data);
     }
 
     switch (sr_state)
@@ -508,6 +508,7 @@ void loop() {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
+    dump_validated_packet_data();
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
@@ -522,5 +523,8 @@ void loop() {
       // dump_cur_joint_pos();
       run_motors();
     }
+  }
+  else if (temporary_packet_data.checksum_error) {
+    data_response();
   }
 }
