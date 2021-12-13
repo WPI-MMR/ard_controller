@@ -75,8 +75,6 @@ ODriveArduino odrv_leftarm(odrv_leftarm_ser);
 ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
 bool write_flag = false;
-bool send_ack = false;
-bool ack_error = false;
 
 int cur_joint_pos[] = {
   0, 0, 0, 0, 0, 0, 0, 0
@@ -104,6 +102,25 @@ void dump_validated_packet_data() {
           );
   Serial.println(buffer);
 }
+
+void dump_ja_validated_packet() {
+  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
+          ja_validated_packet.left_hip,
+          ja_validated_packet.left_knee,
+          ja_validated_packet.right_hip,
+          ja_validated_packet.right_knee,
+          ja_validated_packet.left_shoulder,
+          ja_validated_packet.left_elbow,
+          ja_validated_packet.right_shoulder,
+          ja_validated_packet.right_elbow,
+          ja_validated_packet.checksum,
+          ja_validated_packet.checksum_error,
+          ja_validated_packet.packet_available,
+          ja_validated_packet.data_request
+          );
+  Serial.println(buffer);
+}
+
 
 void dump_temporary_packet_data() {
   sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
@@ -574,6 +591,7 @@ void run_motors() {
 void setup() {
   Serial.begin(115200); // console
   raspi_ser.begin(115200); // raspi comms
+  ja_ser.begin(115200);
 
   // start serial connection to ODrives
   odrv_leftleg_ser.begin(115200);
@@ -598,6 +616,7 @@ void loop() {
 
   // handle joint angles setpoint received
   if (ja_validated_packet.packet_available) {
+    dump_ja_validated_packet();
     ja_validated_packet.packet_available = false;
 
     send_ack(true);
@@ -611,7 +630,7 @@ void loop() {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
-    // dump_validated_packet_data();
+//    dump_validated_packet_data();
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
