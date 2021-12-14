@@ -590,8 +590,8 @@ void run_motors() {
 
 void setup() {
   Serial.begin(115200); // console
-  raspi_ser.begin(115200); // raspi comms
-  ja_ser.begin(115200);
+  raspi_ser.begin(1000000); // raspi comms
+  ja_ser.begin(1000000);
 
   // start serial connection to ODrives
   odrv_leftleg_ser.begin(115200);
