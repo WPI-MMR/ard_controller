@@ -10,8 +10,8 @@
 #define DATA_BYTE_LENGTH 2
 #define DEADBAND 2
 
-#define SUCCESS_ACK 0
-#define FAILURE_ACK 1
+#define SUCCESS_ACK 1
+#define FAILURE_ACK 2
 
 enum SerialReadState {
   INIT,
