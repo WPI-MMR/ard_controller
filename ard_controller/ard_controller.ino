@@ -436,13 +436,16 @@ void data_response() {
   if (send_ack) {
     if (ack_error) {
       raspi_ser.write((byte)FAILURE_ACK);
+      raw_sum += FAILURE_ACK;
     }
     else {
       raspi_ser.write((byte)SUCCESS_ACK);
+      raw_sum += SUCCESS_ACK;
     }
   }
   else {
     raspi_ser.write((byte)NO_ACK);
+    raw_sum += NO_ACK;
   }
 
   // send checksum
