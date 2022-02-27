@@ -398,6 +398,7 @@ bool eval_at_goal() {
 }
 
 void data_response() {
+  Serial.println("=========SENDING FOLLOWING RESPONSE==========");
   int raw_sum = 0;
   int checksum;
   int angle;
@@ -426,31 +427,38 @@ void data_response() {
 
     raspi_ser.write((byte)b1);
     raspi_ser.write((byte)b2);
+    Serial.println(angle);
   }
 
   // send at_goal flag
   raw_sum += goal;
   raspi_ser.write((byte)goal);
+  Serial.println(goal);
 
   //send 'setpoint ack' byte
   if (send_ack) {
     if (ack_error) {
       raspi_ser.write((byte)FAILURE_ACK);
       raw_sum += FAILURE_ACK;
+      Serial.println(FAILURE_ACK);
     }
     else {
       raspi_ser.write((byte)SUCCESS_ACK);
       raw_sum += SUCCESS_ACK;
+      Serial.println(SUCCESS_ACK);
     }
   }
   else {
     raspi_ser.write((byte)NO_ACK);
     raw_sum += NO_ACK;
+    Serial.println(NO_ACK);
   }
 
   // send checksum
   checksum = 255 - raw_sum % 256;
   raspi_ser.write((byte)checksum);
+
+  Serial.println("=========END RESPONSE==========");
 }
 
 int deg_dist(int initial, int final) {
