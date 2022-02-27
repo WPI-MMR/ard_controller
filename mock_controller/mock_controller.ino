@@ -59,6 +59,8 @@ bool write_flag = false;
 bool send_ack = false;
 bool ack_error = false;
 
+long timestamp = millis();
+
 int cur_joint_pos[] = {
   0, 0, 0, 0, 0, 0, 0, 0
 };
@@ -474,5 +476,8 @@ void loop() {
     data_response();
   }
 
-  update_cur_pos();
+  if (millis() - timestamp > 10) {
+    update_cur_pos();
+    timestamp = millis();
+  }
 }
