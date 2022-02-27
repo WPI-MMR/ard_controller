@@ -284,7 +284,7 @@ void rx_processor() {
           validated_packet_data.data_request = temporary_packet_data.data_request;
 
           if (!validated_packet_data.data_request) {
-            joint_angle_goal = temporary_packet_data;
+            joint_angle_goal = validated_packet_data;
           }
 
           sr_state = INIT;
@@ -320,14 +320,22 @@ void update_cur_pos() {
   int r_sh = joint_angle_goal.right_shoulder;
   int r_elb = joint_angle_goal.right_elbow;
 
-  cur_joint_pos[0]++ ? cur_joint_pos[0] < l_hip : cur_joint_pos[0]--;
-  cur_joint_pos[1]++ ? cur_joint_pos[1] < l_knee : cur_joint_pos[1]--;
-  cur_joint_pos[2]++ ? cur_joint_pos[2] < r_hip : cur_joint_pos[2]--;
-  cur_joint_pos[3]++ ? cur_joint_pos[3] < r_knee : cur_joint_pos[3]--;
-  cur_joint_pos[4]++ ? cur_joint_pos[4] < l_sh : cur_joint_pos[4]--;
-  cur_joint_pos[5]++ ? cur_joint_pos[5] < l_elb : cur_joint_pos[5]--;
-  cur_joint_pos[6]++ ? cur_joint_pos[6] < r_sh : cur_joint_pos[6]--;
-  cur_joint_pos[7]++ ? cur_joint_pos[7] < r_elb : cur_joint_pos[7]--;
+  if (cur_joint_pos[0] < l_hip) {cur_joint_pos[0] += 1;}
+  else if (cur_joint_pos[0] > l_hip) {cur_joint_pos[0] -= 1;}
+  if (cur_joint_pos[1] < l_knee) {cur_joint_pos[1] += 1;}
+  else if (cur_joint_pos[1] > l_knee) {cur_joint_pos[1] -= 1;}
+  if (cur_joint_pos[2] < r_hip) {cur_joint_pos[2] += 1;}
+  else if (cur_joint_pos[2] > r_hip) {cur_joint_pos[2] -= 1;}
+  if (cur_joint_pos[3] < r_knee) {cur_joint_pos[3] += 1;}
+  else if (cur_joint_pos[3] > r_knee) {cur_joint_pos[3] -= 1;}
+  if (cur_joint_pos[4] < l_sh) {cur_joint_pos[4] += 1;}
+  else if (cur_joint_pos[4] > l_sh) {cur_joint_pos[4] -= 1;}
+  if (cur_joint_pos[5] < l_elb) {cur_joint_pos[5] += 1;}
+  else if (cur_joint_pos[5] > l_elb) {cur_joint_pos[5] -= 1;}
+  if (cur_joint_pos[6] < r_sh) {cur_joint_pos[6] += 1;}
+  else if (cur_joint_pos[6] > r_sh) {cur_joint_pos[6] -= 1;}
+  if (cur_joint_pos[7] < r_elb) {cur_joint_pos[7] += 1;}
+  else if (cur_joint_pos[7] > r_elb) {cur_joint_pos[7] -= 1;}
 }
 
 bool eval_at_goal() {
