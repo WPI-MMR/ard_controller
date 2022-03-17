@@ -476,7 +476,7 @@ void loop() {
     data_response();
   }
 
-  if (millis() - timestamp > 10) {
+  if (millis() - timestamp > 3) {
     update_cur_pos();
     timestamp = millis();
   }
