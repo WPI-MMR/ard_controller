@@ -8,7 +8,12 @@
 #define NUM_IMU_AXES 3
 #define PREAMBLE_LENGTH 4
 #define DATA_BYTE_LENGTH 2
-#define DEADBAND 3
+#define DEADBAND 2
+
+#define LEFT_FOOT_DOWN 50
+#define LEFT_FOOT_UP 90
+#define RIGHT_FOOT_DOWN 80
+#define RIGHT_FOOT_UP 0
 
 enum SerialReadState {
   INIT,
@@ -65,6 +70,9 @@ ODriveArduino odrv_rightleg(odrv_rightleg_ser);
 ODriveArduino odrv_leftarm(odrv_leftarm_ser);
 ODriveArduino odrv_rightarm(odrv_rightarm_ser);
 
+Servo left_ankle;
+Servo right_ankle;
+
 bool write_flag = false;
 
 int cur_joint_pos[] = {
@@ -77,7 +85,7 @@ float cur_raw_pos[] = {
 char buffer[128]; // buffer for printf
 
 void dump_validated_packet_data() {
-  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
+  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
           validated_packet_data.left_hip,
           validated_packet_data.left_knee,
           validated_packet_data.right_hip,
@@ -86,6 +94,8 @@ void dump_validated_packet_data() {
           validated_packet_data.left_elbow,
           validated_packet_data.right_shoulder,
           validated_packet_data.right_elbow,
+          validated_packet_data.left_ankle,
+          validated_packet_data.right_ankle,
           validated_packet_data.checksum,
           validated_packet_data.checksum_error,
           validated_packet_data.packet_available,
@@ -95,7 +105,7 @@ void dump_validated_packet_data() {
 }
 
 void dump_temporary_packet_data() {
-  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
+  sprintf(buffer, "%3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u %3u",
           temporary_packet_data.left_hip,
           temporary_packet_data.left_knee,
           temporary_packet_data.right_hip,
@@ -104,6 +114,8 @@ void dump_temporary_packet_data() {
           temporary_packet_data.left_elbow,
           temporary_packet_data.right_shoulder,
           temporary_packet_data.right_elbow,
+          validated_packet_data.left_ankle,
+          validated_packet_data.right_ankle,
           temporary_packet_data.checksum,
           temporary_packet_data.checksum_error,
           temporary_packet_data.packet_available,
@@ -166,6 +178,8 @@ void rx_processor() {
         temporary_packet_data.left_elbow = 0;
         temporary_packet_data.right_shoulder = 0;
         temporary_packet_data.right_elbow = 0;
+        temporary_packet_data.left_ankle = 0;
+        temporary_packet_data.right_ankle = 0;
         temporary_packet_data.checksum = 0;
         temporary_packet_data.checksum_error = false;
         temporary_packet_data.packet_available = false;
@@ -266,6 +280,14 @@ void rx_processor() {
           sr_state = READ_CHECKSUM;
         }
         break;
+      case READ_L_ANKLE:
+        temporary_packet_data.left_ankle = received_data;
+        calculated_checksum += received_data;
+        break;
+      case READ_R_ANKLE:
+        temporary_packet_data.right_ankle = received_data;
+        calculated_checksum += received_data;
+        break;
       case READ_CHECKSUM:
         temporary_packet_data.checksum = received_data;
 
@@ -286,6 +308,8 @@ void rx_processor() {
           validated_packet_data.left_elbow = temporary_packet_data.left_elbow;
           validated_packet_data.right_shoulder = temporary_packet_data.right_shoulder;
           validated_packet_data.right_elbow = temporary_packet_data.right_elbow;
+          validated_packet_data.left_ankle = temporary_packet_data.left_ankle;
+          validated_packet_data.right_ankle = temporary_packet_data.right_ankle;
           validated_packet_data.checksum = temporary_packet_data.checksum;
           validated_packet_data.checksum_error = temporary_packet_data.checksum_error;
           validated_packet_data.packet_available = temporary_packet_data.packet_available;
@@ -452,6 +476,14 @@ void run_motors() {
   odrv_leftarm.SetPosition(1, left_elb_setpoint);
   odrv_rightarm.SetPosition(0, right_sh_setpoint);
   odrv_rightarm.SetPosition(1, right_elb_setpoint);
+
+  if (joint_angle_goal.left_ankle == 1 && joint_angle_goal.right_ankle == 1) {
+    left_ankle.write(LEFT_FOOT_DOWN);
+    right_ankle.write(RIGHT_FOOT_DOWN);
+  } else {
+    left_ankle.write(LEFT_FOOT_UP);
+    right_ankle.write(RIGHT_FOOT_UP);    
+  }
 }
 
 void setup() {
@@ -464,16 +496,9 @@ void setup() {
   odrv_leftarm_ser.begin(115200);
   odrv_rightarm_ser.begin(115200);
 
-  // set all ODrive axes to closed loop control
-  int requested_state = ODriveArduino::AXIS_STATE_CLOSED_LOOP_CONTROL;
-  odrv_leftleg.run_state(0, requested_state, false); // hips
-  odrv_rightleg.run_state(0, requested_state, false);
-  odrv_leftarm.run_state(0, requested_state, false); // shoulders
-  odrv_rightarm.run_state(0, requested_state, false);
-  odrv_leftleg.run_state(1, requested_state, false); // knees
-  odrv_rightleg.run_state(1, requested_state, false);
-  odrv_leftarm.run_state(1, requested_state, false); // elbows
-  odrv_rightarm.run_state(1, requested_state, false);
+  // attach pins to servos
+  left_ankle.attach(38);
+  right_ankle.attach(39);
 
   // initialize goal to 0 so that if a data request comes in before a goal is given, no error occurs
   joint_angle_goal.left_hip = 0;
@@ -484,6 +509,9 @@ void setup() {
   joint_angle_goal.left_elbow = 0;
   joint_angle_goal.right_shoulder = 0;
   joint_angle_goal.right_elbow = 0;
+
+  left_ankle.write(LEFT_FOOT_UP);
+  right_ankle.write(RIGHT_FOOT_UP);
 }
 
 void loop() {
