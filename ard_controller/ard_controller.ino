@@ -12,7 +12,7 @@
 
 #define LEFT_FOOT_DOWN 50
 #define LEFT_FOOT_UP 90
-#define RIGHT_FOOT_DOWN 80
+#define RIGHT_FOOT_DOWN 60
 #define RIGHT_FOOT_UP 0
 
 enum SerialReadState {
@@ -161,7 +161,7 @@ void rx_processor() {
   if (raspi_ser.available() > 0) {
     if (sr_state != INIT) {
       received_data = raspi_ser.read();
-      // Serial.println(received_data);
+      Serial.println(received_data);
     }
 
     switch (sr_state)
@@ -277,16 +277,18 @@ void rx_processor() {
         data_byte_counter--;
         if (data_byte_counter == 0) {
           data_byte_counter = DATA_BYTE_LENGTH;
-          sr_state = READ_CHECKSUM;
+          sr_state = READ_L_ANKLE;
         }
         break;
       case READ_L_ANKLE:
         temporary_packet_data.left_ankle = received_data;
         calculated_checksum += received_data;
+        sr_state = READ_R_ANKLE;
         break;
       case READ_R_ANKLE:
         temporary_packet_data.right_ankle = received_data;
         calculated_checksum += received_data;
+        sr_state = READ_CHECKSUM;
         break;
       case READ_CHECKSUM:
         temporary_packet_data.checksum = received_data;
@@ -325,6 +327,8 @@ void rx_processor() {
           temporary_packet_data.checksum_error = true;
           temporary_packet_data.packet_available = false;
           sr_state = INIT;
+          Serial.print("Bad checksum. Calculated: ");
+          Serial.println(0xFF - (calculated_checksum % 256));
         }
         break;
       default:
@@ -520,6 +524,7 @@ void loop() {
     // if (!validated_packet_data.data_request) {
     //   dump_validated_packet_data();
     // }
+    dump_validated_packet_data();
 
     validated_packet_data.packet_available = false;
     update_cur_pos();
