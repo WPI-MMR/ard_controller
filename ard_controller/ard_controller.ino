@@ -10,9 +10,9 @@
 #define DATA_BYTE_LENGTH 2
 #define DEADBAND 2
 
-#define LEFT_FOOT_DOWN 50
+#define LEFT_FOOT_DOWN 51
 #define LEFT_FOOT_UP 90
-#define RIGHT_FOOT_DOWN 60
+#define RIGHT_FOOT_DOWN 63
 #define RIGHT_FOOT_UP 0
 
 enum SerialReadState {
