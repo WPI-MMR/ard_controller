@@ -26,14 +26,14 @@ int L1 = 160;
 int L2 = 173.5;
 
 int t1[] = {
-  0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 90
+  10, 20, 30, 40, 50, 60, 70, 80, 90, 90
 };
 int t2[] = {
-  0, 350, 340, 330, 320, 310, 300, 290, 280, 270, 270
-}
+  350, 340, 330, 320, 310, 300, 290, 280, 270, 270
+};
 int vel[] = {
-  1, 3, 5, 7, 9, 9, 7, 5, 3, 1, 0
-}
+  1, 3, 5, 7, 9, 7, 5, 3, 1, 0
+};
 
 char buffer[128]; // buffer for printf
 
@@ -69,13 +69,13 @@ void update_cur_pos() {
 }
 
 // test if the current position is at the goal position
-bool eval_at_goal(theta1, theta2) {
+bool eval_at_goal(int theta1, int theta2) {
   // int r_sh = joint_angle_goal.right_shoulder;
   // int r_elb = joint_angle_goal.right_elbow;
 
-  if (!(abs(cur_joint_pos[0] - theta1) <= DEADBAND)) {
-    return false;
-  }
+//  if (!(abs(cur_joint_pos[0] - theta1) <= DEADBAND)) {
+//    return false;
+//  }
   if (!(abs(cur_joint_pos[1] - theta2) <= DEADBAND)) {
     return false;
   }
@@ -91,17 +91,22 @@ void setup() {
 }
 
 void loop() {
+  update_cur_pos();
+  dump_cur_joint_pos();
   if (Serial.available() > 0) {
+    Serial.println("Starting");
     Serial.read();
-    for (int i = 0; i < sizeof(t1); i++) {
+    for (int i = 0; i < 10; i++) {
       // send velocity
-      odrv_rightarm.SetVelocity(0, t1[i]);
-      odrv_rightarm.SetVelocity(1, t2[i]);
+      odrv_rightarm.SetVelocity(0, vel[i]);
+      odrv_rightarm.SetVelocity(1, -vel[i]);
 
       // wait for goal complete
       while (true) {
         update_cur_pos();
+        dump_cur_joint_pos();
         if (eval_at_goal(t1[i], t2[i])) {
+          Serial.println("==================================================");
           break;
         }
       }
