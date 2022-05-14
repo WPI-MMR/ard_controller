@@ -10,10 +10,15 @@
 #define DATA_BYTE_LENGTH 2
 #define DEADBAND 2
 
-#define LEFT_FOOT_DOWN 51
-#define LEFT_FOOT_UP 90
-#define RIGHT_FOOT_DOWN 63
-#define RIGHT_FOOT_UP 0
+#define LEFT_FOOT_LOW 20
+#define LEFT_FOOT_HIGH 95
+#define RIGHT_FOOT_LOW 95
+#define RIGHT_FOOT_HIGH 20
+
+#define LEFT_FOOT_HIGH_DEG 30
+#define LEFT_FOOT_LOW_DEG 110
+#define RIGHT_FOOT_HIGH_DEG 30
+#define RIGHT_FOOT_LOW_DEG 110
 
 enum SerialReadState {
   INIT,
@@ -462,6 +467,7 @@ int deg_dist(int initial, int final) {
 void run_motors() {
   float left_hip_setpoint, left_knee_setpoint, right_hip_setpoint, right_knee_setpoint;
   float left_sh_setpoint, left_elb_setpoint, right_sh_setpoint, right_elb_setpoint;
+  int left_an_setpoint, right_an_setpoint;
 
   left_hip_setpoint = cur_raw_pos[0] + (deg_dist(cur_joint_pos[0], joint_angle_goal.left_hip) * (GEAR_RATIO/360.0));
   left_knee_setpoint = cur_raw_pos[1] + (deg_dist(cur_joint_pos[1], joint_angle_goal.left_knee) * (GEAR_RATIO/360.0));
@@ -472,6 +478,9 @@ void run_motors() {
   right_sh_setpoint = cur_raw_pos[6] + (deg_dist(cur_joint_pos[6], joint_angle_goal.right_shoulder) * (GEAR_RATIO/360.0));
   right_elb_setpoint = cur_raw_pos[7] + (deg_dist(cur_joint_pos[7], joint_angle_goal.right_elbow) * (GEAR_RATIO/360.0));
 
+  left_an_setpoint = map(abs(joint_angle_goal.left_ankle - 180), LEFT_FOOT_HIGH_DEG, LEFT_FOOT_LOW_DEG, LEFT_FOOT_HIGH, LEFT_FOOT_LOW);
+  right_an_setpoint = map(abs(joint_angle_goal.right_ankle - 180), RIGHT_FOOT_HIGH_DEG, RIGHT_FOOT_LOW_DEG, RIGHT_FOOT_HIGH, RIGHT_FOOT_LOW);
+
   odrv_leftleg.SetPosition(0, left_hip_setpoint);
   odrv_leftleg.SetPosition(1, left_knee_setpoint);
   odrv_rightleg.SetPosition(0, right_hip_setpoint);
@@ -481,13 +490,8 @@ void run_motors() {
   odrv_rightarm.SetPosition(0, right_sh_setpoint);
   odrv_rightarm.SetPosition(1, right_elb_setpoint);
 
-  if (joint_angle_goal.left_ankle == 1 && joint_angle_goal.right_ankle == 1) {
-    left_ankle.write(LEFT_FOOT_DOWN);
-    right_ankle.write(RIGHT_FOOT_DOWN);
-  } else {
-    left_ankle.write(LEFT_FOOT_UP);
-    right_ankle.write(RIGHT_FOOT_UP);    
-  }
+  left_ankle.write(left_an_setpoint);
+  right_ankle.write(right_an_setpoint);
 }
 
 void setup() {
@@ -514,8 +518,8 @@ void setup() {
   joint_angle_goal.right_shoulder = 0;
   joint_angle_goal.right_elbow = 0;
 
-  left_ankle.write(LEFT_FOOT_UP);
-  right_ankle.write(RIGHT_FOOT_UP);
+  left_ankle.write(LEFT_FOOT_HIGH);
+  right_ankle.write(RIGHT_FOOT_HIGH);
 }
 
 void loop() {
